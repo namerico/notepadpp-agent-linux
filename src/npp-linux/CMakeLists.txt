@@ -31,6 +31,7 @@ set(SOURCES
     EditorTab.cpp
     AgentBridge.cpp
     LexerManager.cpp
+    FunctionListDock.cpp
 )
 
 set(HEADERS
@@ -38,6 +39,7 @@ set(HEADERS
     EditorTab.h
     AgentBridge.h
     LexerManager.h
+    FunctionListDock.h
 )
 
 add_executable(notepadpp-agent

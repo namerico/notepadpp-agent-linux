@@ -36,6 +36,7 @@ EditorTab::EditorTab(QWidget *parent, const QString& filePath)
 
     connect(m_editor, &ScintillaEditBase::notifyChange, this, &EditorTab::onEditorModified);
     connect(m_editor, &ScintillaEditBase::savePointChanged, this, &EditorTab::onSavePointChanged);
+    connect(m_editor, &ScintillaEditBase::charAdded, this, &EditorTab::onCharAdded);
 }
 
 EditorTab::~EditorTab() {}
@@ -180,6 +181,26 @@ void EditorTab::gotoLine(int line) {
     if (line > 0) line--;
     m_editor->send(SCI_GOTOLINE, line);
     m_editor->send(SCI_SCROLLCARET);
+}
+
+void EditorTab::reloadTheme() {
+    LexerManager::instance().applyLexerForFile(m_editor, m_filePath);
+}
+
+void EditorTab::onCharAdded(int ch) {
+    if (!QChar(ch).isLetterOrNumber() && ch != '_') return;
+
+    int curPos = m_editor->send(SCI_GETCURRENTPOS);
+    int startWord = m_editor->send(SCI_WORDSTARTPOSITION, curPos, 1);
+    int lenEntered = curPos - startWord;
+
+    if (lenEntered >= 2) {
+        QString wordList = LexerManager::instance().getAutoCompletionWords(m_filePath);
+        if (!wordList.isEmpty()) {
+            QByteArray utf8Words = wordList.toUtf8();
+            m_editor->sends(SCI_AUTOCSHOW, lenEntered, utf8Words.constData());
+        }
+    }
 }
 
 void EditorTab::onEditorModified() {

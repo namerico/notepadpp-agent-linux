@@ -44,6 +44,9 @@ private:
     QJsonObject rpcCloseTab(const QJsonObject& params);
     QJsonObject rpcRenameTab(const QJsonObject& params);
     QJsonObject rpcFocus(const QJsonObject& params);
+    QJsonObject rpcListThemes(const QJsonObject& params);
+    QJsonObject rpcSetTheme(const QJsonObject& params);
+    QJsonObject rpcToggleFunctionList(const QJsonObject& params);
     QJsonObject rpcShowNotification(const QJsonObject& params);
 
     MainWindow* m_mainWindow;

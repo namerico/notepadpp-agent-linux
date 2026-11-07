@@ -1,6 +1,8 @@
 #include "AgentBridge.h"
 #include "MainWindow.h"
 #include "EditorTab.h"
+#include "LexerManager.h"
+#include "FunctionListDock.h"
 
 #include <QLocalSocket>
 #include <QFileInfo>
@@ -135,6 +137,12 @@ QJsonObject AgentBridge::processJsonRpc(const QJsonObject& req) {
             result = rpcRenameTab(params);
         } else if (method == "focus") {
             result = rpcFocus(params);
+        } else if (method == "listThemes") {
+            result = rpcListThemes(params);
+        } else if (method == "setTheme") {
+            result = rpcSetTheme(params);
+        } else if (method == "toggleFunctionList") {
+            result = rpcToggleFunctionList(params);
         } else if (method == "showNotification") {
             result = rpcShowNotification(params);
         } else {
@@ -417,6 +425,41 @@ QJsonObject AgentBridge::rpcFocus(const QJsonObject& params) {
     m_mainWindow->activateWindow();
     QJsonObject res;
     res["success"] = true;
+    return res;
+}
+
+QJsonObject AgentBridge::rpcListThemes(const QJsonObject& params) {
+    Q_UNUSED(params);
+    QJsonObject res;
+    res["current"] = LexerManager::instance().currentTheme();
+    QJsonArray arr;
+    for (const QString& th : LexerManager::instance().availableThemes()) {
+        arr.append(th);
+    }
+    res["themes"] = arr;
+    return res;
+}
+
+QJsonObject AgentBridge::rpcSetTheme(const QJsonObject& params) {
+    QString name = params.value("theme").toString();
+    QJsonObject res;
+    if (name.isEmpty()) {
+        res["success"] = false;
+        res["error"] = "Theme name is required";
+        return res;
+    }
+    m_mainWindow->applyTheme(name);
+    res["success"] = true;
+    res["current"] = LexerManager::instance().currentTheme();
+    return res;
+}
+
+QJsonObject AgentBridge::rpcToggleFunctionList(const QJsonObject& params) {
+    bool visible = params.value("visible").toBool(!m_mainWindow->functionListDock()->isVisible());
+    m_mainWindow->toggleFunctionList(visible);
+    QJsonObject res;
+    res["success"] = true;
+    res["visible"] = visible;
     return res;
 }
 

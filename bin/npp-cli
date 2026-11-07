@@ -128,6 +128,18 @@ def main():
     p_rename.add_argument("title", help="Novo título da aba")
     p_rename.add_argument("--index", type=int, default=-1, help="Índice da aba a renomear")
 
+    # themes
+    subparsers.add_parser("themes", help="Lista todos os temas oficiais disponíveis do Notepad++")
+
+    # theme
+    p_th = subparsers.add_parser("theme", help="Aplica um tema na interface")
+    p_th.add_argument("name", help="Nome do tema (ex: Monokai, Obsidian, Solarized, Zenburn, Bespin)")
+
+    # function-list
+    p_fl = subparsers.add_parser("function-list", help="Alterna a exibição do painel de funções")
+    p_fl.add_argument("--show", action="store_true", help="Força exibição")
+    p_fl.add_argument("--hide", action="store_true", help="Força ocultação")
+
     # notify
     p_notif = subparsers.add_parser("notify", help="Exibe uma mensagem/notificação de agente no rodapé")
     p_notif.add_argument("message", help="Mensagem do agente")
@@ -176,6 +188,17 @@ def main():
         if args.index >= 0:
             params["index"] = args.index
         res = send_rpc("renameTab", params)
+    elif args.command == "themes":
+        res = send_rpc("listThemes")
+    elif args.command == "theme":
+        res = send_rpc("setTheme", {"theme": args.name})
+    elif args.command == "function-list":
+        params = {}
+        if args.show:
+            params["visible"] = True
+        elif args.hide:
+            params["visible"] = False
+        res = send_rpc("toggleFunctionList", params)
     elif args.command == "notify":
         res = send_rpc("showNotification", {"message": args.message})
 

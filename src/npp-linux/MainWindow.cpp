@@ -1,6 +1,8 @@
 #include "MainWindow.h"
 #include "EditorTab.h"
 #include "AgentBridge.h"
+#include "FunctionListDock.h"
+#include "LexerManager.h"
 #include "ScintillaEditBase.h"
 
 #include <QApplication>
@@ -40,15 +42,25 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_tabWidget(new QTabWidget(this))
     , m_agentBridge(new AgentBridge(this, this))
+    , m_functionListDock(new FunctionListDock(this))
 {
     setWindowTitle("Notepad++ (Antigravity Linux Agent Edition)");
-    resize(1100, 750);
+    resize(1200, 800);
 
     // Configuração do TabWidget
     m_tabWidget->setTabsClosable(true);
     m_tabWidget->setMovable(true);
     m_tabWidget->setDocumentMode(true);
     setCentralWidget(m_tabWidget);
+
+    // Dock lateral de Funções
+    addDockWidget(Qt::RightDockWidgetArea, m_functionListDock);
+    connect(m_functionListDock, &FunctionListDock::lineSelected, this, [this](int line) {
+        EditorTab* tab = currentTab();
+        if (tab) {
+            tab->gotoLine(line);
+        }
+    });
 
     connect(m_tabWidget, &QTabWidget::currentChanged, this, &MainWindow::onCurrentTabChanged);
     connect(m_tabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::onTabCloseRequested);
@@ -149,6 +161,13 @@ void MainWindow::createActions() {
     m_actZoomOut->setShortcut(QKeySequence::ZoomOut);
     connect(m_actZoomOut, &QAction::triggered, this, &MainWindow::actionZoomOut);
 
+    m_actToggleFunctionList = new QAction("Lista de Funções (Function List)", this);
+    m_actToggleFunctionList->setCheckable(true);
+    m_actToggleFunctionList->setChecked(true);
+    m_actToggleFunctionList->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_L));
+    connect(m_actToggleFunctionList, &QAction::toggled, this, &MainWindow::toggleFunctionList);
+    connect(m_functionListDock, &QDockWidget::visibilityChanged, m_actToggleFunctionList, &QAction::setChecked);
+
     // Ajuda
     m_actAbout = new QAction("&Sobre o Notepad++ Agent Linux", this);
     connect(m_actAbout, &QAction::triggered, this, &MainWindow::actionAbout);
@@ -184,9 +203,21 @@ void MainWindow::createMenus() {
     QMenu* viewMenu = menuBar()->addMenu("E&xibir");
     viewMenu->addAction(m_actZoomIn);
     viewMenu->addAction(m_actZoomOut);
+    viewMenu->addSeparator();
+    viewMenu->addAction(m_actToggleFunctionList);
 
     QMenu* langMenu = menuBar()->addMenu("&Linguagem");
     langMenu->addAction("Detectar Automaticamente");
+
+    QMenu* settingsMenu = menuBar()->addMenu("&Configurações");
+    QMenu* themesMenu = settingsMenu->addMenu("&Temas");
+    QStringList themes = LexerManager::instance().availableThemes();
+    for (const QString& th : themes) {
+        QAction* thAct = themesMenu->addAction(th);
+        connect(thAct, &QAction::triggered, this, [this, th]() {
+            applyTheme(th);
+        });
+    }
 
     QMenu* helpMenu = menuBar()->addMenu("A&juda");
     helpMenu->addAction(m_actAbout);
@@ -213,6 +244,8 @@ void MainWindow::createToolBars() {
     mainToolBar->addSeparator();
     mainToolBar->addAction(m_actZoomIn);
     mainToolBar->addAction(m_actZoomOut);
+    mainToolBar->addSeparator();
+    mainToolBar->addAction(m_actToggleFunctionList);
 }
 
 void MainWindow::createStatusBar() {
@@ -404,6 +437,27 @@ void MainWindow::showStatusMessage(const QString& msg, int timeout) {
     }
 }
 
+void MainWindow::applyTheme(const QString& themeName) {
+    if (LexerManager::instance().setTheme(themeName)) {
+        for (int i = 0; i < m_tabWidget->count(); ++i) {
+            EditorTab* t = tabAt(i);
+            if (t) {
+                t->reloadTheme();
+            }
+        }
+        showStatusMessage(QString("Tema aplicado: %1").arg(themeName));
+    }
+}
+
+void MainWindow::toggleFunctionList(bool visible) {
+    if (m_functionListDock) {
+        m_functionListDock->setVisible(visible);
+        if (visible) {
+            m_functionListDock->updateSymbols(currentTab());
+        }
+    }
+}
+
 void MainWindow::updateTabIcon(int index, bool modified) {
     m_tabWidget->setTabIcon(index, createTabIcon(modified));
 }
@@ -429,6 +483,9 @@ void MainWindow::updateStatusBarInfo() {
 void MainWindow::onCurrentTabChanged(int index) {
     Q_UNUSED(index);
     updateStatusBarInfo();
+    if (m_functionListDock && m_functionListDock->isVisible()) {
+        m_functionListDock->updateSymbols(currentTab());
+    }
 }
 
 void MainWindow::onTabCloseRequested(int index) {

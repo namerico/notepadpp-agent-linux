@@ -33,6 +33,7 @@ public:
     void getSelection(int& start, int& end) const;
     void setSelection(int start, int end);
     void gotoLine(int line);
+    void reloadTheme();
 
     ScintillaEditBase* editor() const { return m_editor; }
 
@@ -44,6 +45,7 @@ signals:
 private slots:
     void onEditorModified();
     void onSavePointChanged(bool dirty);
+    void onCharAdded(int ch);
 
 private:
     void setupEditor();

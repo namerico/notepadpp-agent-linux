@@ -1,30 +1,50 @@
 # 🦎 Notepad++ Agent-Native para Linux (Ecossistema Antigravity)
 
-> **Port nativo de alto desempenho do Notepad++ v8.9.8.1 para Linux impulsionado por C++17, Scintilla e Lexilla oficiais, equipado com uma ponte IPC inteligente (Agent Bridge) para integração profunda e bidirecional com o ecossistema Google Antigravity e agentes de IA autônomos.**
+> **Port nativo de alto desempenho do Notepad++ v8.9.8.1 para Linux impulsionado por C++17, Scintilla e Lexilla oficiais, equipado com o sistema oficial de 22 Temas XML, Painel Lateral Function List, Auto-Completion nativo e o barramento Agent Bridge IPC para controle bidirecional com o Google Antigravity e agentes de IA autônomos.**
 
 ---
 
-![Notepad++ Agent Linux Window](docs/images/notepadpp_window.png)
+![Notepad++ Agent Linux Monokai & Function List](docs/images/notepadpp_monokai_window.png)
 
-## 📌 Visão Geral
+## 📌 Visão Geral & Diferenciais
 
-O **Notepad++ Agent-Native para Linux** não é um mero wrapper Wine ou uma cópia simplificada. Trata-se de uma engenharia de portabilidade direta que une os motores oficiais do Notepad++ (**Scintilla** para edição de texto de baixo nível e **Lexilla** para análise sintática de centenas de linguagens) a uma camada de interface moderna em **Qt5/C++17**, enriquecida por um barramento de comunicação entre processos (**Agent Bridge IPC**) via **Unix Domain Socket**.
+O **Notepad++ Agent-Native para Linux** une os motores oficiais do Notepad++ (**Scintilla** para edição de texto de baixo nível e **Lexilla** para análise sintática de centenas de linguagens) a uma camada de interface moderna em **Qt5/C++17**, enriquecida por um barramento de comunicação entre processos (**Agent Bridge IPC**) via **Unix Domain Socket**.
 
-Essa arquitetura permite que agentes de IA (como o **Antigravity**, **Artemis Linux** e subagentes autônomos) inspecionem arquivos abertos, leiam linhas específicas, apliquem diffs/patches cirúrgicos e enviem notificações visuais diretamente para a janela do editor em tempo real enquanto o usuário programa.
+Essa arquitetura permite que agentes de IA (como o **Antigravity**, **Artemis Linux** e subagentes autônomos) inspecionem arquivos abertos, leiam linhas específicas, apliquem diffs/patches cirúrgicos, troquem temas ao vivo e enviem notificações visuais diretamente para a janela do editor em tempo real enquanto o usuário programa.
+
+---
+
+## 🎨 Novas Funcionalidades Integradas (Tríade REA + Craft Anything + Artemis)
+
+### 1. 🌈 Suporte Completo aos 22 Temas Oficiais do Notepad++
+Utilizando a engenharia de estilos do Notepad++, o editor lê e processa os temas XML originais, mapeando paletas de cores RGB/BGR diretamente para o Scintilla:
+* **Temas inclusos:** `Monokai`, `Obsidian`, `Solarized`, `Zenburn`, `Bespin`, `Deep Black`, `Choco`, `Twilight`, `Vibrant Ink`, `Plastic Code Wrap`, `Ruby Blue`, `DarkModeDefault`, `Hello Kitty`, `HotFudgeSundae`, `Mono Industrial`, `MossyLawn`, `Navajo`, `khaki`, `vim Dark Blue`, entre outros.
+* **Troca instantânea:** Disponível pelo menu `Configurações -> Temas` ou programaticamente via CLI/agente (`npp-cli theme Monokai`).
+
+### 2. 🌲 Painel Lateral Function List (Navegador de Classes e Funções)
+* Painel lateral acoplável e retrátil (`QDockWidget`) integrado com busca e filtro em tempo real.
+* Detecta automaticamente classes, métodos, estruturas e funções para **C/C++, Python, JavaScript, TypeScript, PHP, Rust, Go, Java, Bash**, etc.
+* **Navegação com 1 clique:** Dê um clique duplo em qualquer símbolo da lista para saltar imediatamente para a respectiva linha de código.
+* Atalho rápido: `Ctrl + Alt + L` ou via comando `npp-cli function-list --show`.
+
+### 3. ⚡ Auto-Completion Nativo com Dicionários Oficiais
+* Integração com mais de 30 dicionários XML de palavras-chave oficiais do Notepad++ (`autoCompletion/*.xml`).
+* Disparo automático inteligente no Scintilla com `SCI_AUTOCSHOW` ao digitar identificadores.
+
+### 4. 🛡️ Suíte de Auditoria e Testes do Artemis Linux (`tests/artemis_ui_audit.py`)
+* Rotina automatizada que valida o ciclo completo de UI, troca de temas, acoplamento de painéis, injeção de código e barramento IPC.
 
 ---
 
 ## 📸 Demonstração Visual no Desktop
 
-Abaixo está o registro da aplicação rodando nativamente no **Ubuntu 26.04 / GNOME Shell** sob Wayland, com o agente Antigravity escrevendo código ao vivo e gerenciando documentos abertos:
+Abaixo está o registro da aplicação rodando com o tema **Monokai** e a **Function List** ativa ao lado do chat do Antigravity no **Ubuntu 26.04 / GNOME Shell**:
 
-![Notepad++ Agent Linux no Desktop](docs/images/notepadpp_running.png)
+![Notepad++ Agent Linux no Desktop](docs/images/notepadpp_monokai_functionlist.png)
 
 ---
 
 ## 🧠 Como os Agentes Funcionam e Interagem
-
-O grande diferencial deste projeto é a integração nativa com agentes autônomos de IA. Os agentes deixam de ser simples assistentes de chat isolados e passam a ter **presença ativa e controle programático** sobre o ambiente de edição do usuário.
 
 ```mermaid
 sequenceDiagram
@@ -34,104 +54,69 @@ sequenceDiagram
     participant CLI as npp-cli (CLI Tool)
     participant Socket as Unix Socket (/tmp/npp_antigravity.sock)
     participant Core as Notepad++ Agent Linux Core
-    participant Engine as Scintilla / Lexilla Engine
+    participant Engine as Scintilla / Lexilla / Temas
 
-    Usuario->>Chat: "Crie uma página moderna e coloque no Notepad++"
-    Chat->>CLI: npp-cli new --text "..."
-    CLI->>Socket: JSON-RPC {"method": "newTab", "params": {...}}
-    Socket->>Core: AgentBridge despacha requisição
-    Core->>Engine: Aloca buffer Scintilla & aplica Lexer
-    Core-->>Socket: {"result": {"success": true, "tabIndex": 2}}
-    Socket-->>CLI: Resposta JSON
-    CLI-->>Chat: Confirmação de execução
-    Chat->>CLI: npp-cli notify "Página criada com sucesso!"
-    CLI->>Socket: JSON-RPC {"method": "showNotification", ...}
-    Socket->>Core: Atualiza status bar na tela do usuário
-    Core-->>Usuario: Nova aba aberta com sintaxe colorida em tempo real
+    Usuario->>Chat: "Mude o tema para Monokai e abra a Lista de Funções"
+    Chat->>CLI: npp-cli theme Monokai
+    CLI->>Socket: JSON-RPC {"method": "setTheme", "params": {"theme": "Monokai"}}
+    Socket->>Core: LexerManager aplica estilos XML
+    Core->>Engine: Reconfigura paleta do Scintilla
+    Core-->>Socket: {"result": {"success": true, "current": "Monokai"}}
+    Chat->>CLI: npp-cli function-list --show
+    CLI->>Socket: JSON-RPC {"method": "toggleFunctionList", "params": {"visible": true}}
+    Socket->>Core: Exibe QDockWidget FunctionList
+    Core-->>Usuario: Interface atualizada com tema escuro e navegador de símbolos
 ```
 
-### 1. Protocolo Agent Bridge IPC
+### Protocolo Agent Bridge IPC
 O editor expõe um endpoint local em:
 ```
 /tmp/npp_antigravity.sock
 ```
-A comunicação utiliza o padrão **JSON-RPC 2.0** delimitado por quebra de linha (`\n`), garantindo latência inferior a **2 milissegundos** por comando:
-
-```json
-// Exemplo de requisição enviada pelo Agente:
-{
-  "jsonrpc": "2.0",
-  "id": 101,
-  "method": "getActiveBuffer",
-  "params": {}
-}
-
-// Resposta retornada instantaneamente pelo Notepad++:
-{
-  "jsonrpc": "2.0",
-  "id": 101,
-  "result": {
-    "tabIndex": 0,
-    "title": "main.cpp",
-    "filePath": "/home/namerico/projeto/main.cpp",
-    "isModified": false,
-    "lineCount": 42,
-    "currentLine": 15,
-    "currentColumn": 4,
-    "text": "#include <iostream>..."
-  }
-}
-```
-
-### 2. Métodos RPC Disponíveis para Agentes
-| Método | Parâmetros | Descrição |
-| :--- | :--- | :--- |
-| `ping` | `{}` | Verifica se o editor está vivo, retornando versão, PID e abas. |
-| `listTabs` | `{}` | Lista todas as abas abertas com seus títulos, caminhos e status. |
-| `switchTab` | `{"index": N}` | Alterna a aba ativa para o índice especificado. |
-| `newTab` | `{"text": "..."}` | Cria uma nova aba imediatamente com texto opcional. |
-| `renameTab` | `{"index": N, "title": "..."}` | Renomeia dinamicamente o título exibido na aba. |
-| `openFile` | `{"path": "...", "line": N}` | Abre um arquivo do disco e salta para a linha desejada. |
-| `getActiveBuffer`| `{}` | Obtém todo o conteúdo do buffer atual, seleção e posição do cursor. |
-| `setActiveBuffer`| `{"text": "..."}` | Substitui o texto do arquivo aberto. |
-| `insertText` | `{"text": "..."}` | Insere texto na posição atual do cursor. |
-| `applyDiff` | `{"startPos": N, "len": N, "replacement": "..."}` | Aplica alterações e patches cirúrgicos sem corromper o restante do arquivo. |
-| `saveActiveFile` | `{}` | Grava as alterações do arquivo ativo no disco. |
-| `closeTab` | `{"index": N}` | Fecha uma aba específica ou ativa. |
-| `showNotification` | `{"message": "...", "timeout": N}` | Mostra mensagens e avisos do agente no rodapé da janela. |
+A comunicação utiliza o padrão **JSON-RPC 2.0** delimitado por quebra de linha (`\n`), garantindo latência inferior a **2 milissegundos** por comando.
 
 ---
 
 ## 🛠️ CLI Unificada: `npp-cli`
 
-Para facilitar tanto o uso por scripts shell quanto a chamada pelos agentes, o projeto acompanha a ferramenta central `npp-cli`:
-
 ```bash
-# Verificar status da instância
+# 1. Verificar status da instância
 npp-cli ping
 
-# Listar todas as abas abertas
+# 2. Listar todas as abas abertas
 npp-cli tabs
 
-# Abrir um arquivo na linha 42
+# 3. Listar os 22 temas oficiais disponíveis
+npp-cli themes
+
+# 4. Alternar o tema do editor ao vivo
+npp-cli theme Monokai
+npp-cli theme Obsidian
+npp-cli theme Solarized
+
+# 5. Exibir ou ocultar o painel Function List
+npp-cli function-list --show
+npp-cli function-list --hide
+
+# 6. Abrir um arquivo na linha 42
 npp-cli open "/caminho/do/script.py" --line 42
 
-# Obter o código do buffer ativo
+# 7. Obter o código do buffer ativo
 npp-cli get
 
-# Criar uma nova aba com código
+# 8. Criar uma nova aba com código
 npp-cli new --text "print('Olá do Notepad++ no Linux!')"
 
-# Renomear uma aba aberta
+# 9. Renomear uma aba aberta
 npp-cli rename "meu_modulo.py"
 
-# Aplicar um patch atômico de substituição
+# 10. Aplicar um patch atômico de substituição
 npp-cli patch --start 120 --len 25 --replace "nova_funcao()"
 
-# Salvar o documento ativo
+# 11. Salvar o documento ativo
 npp-cli save
 
-# Enviar notificação na barra de status
+# 12. Enviar notificação na barra de status
 npp-cli notify "Refatoração concluída pelo Antigravity!"
 ```
 
@@ -144,17 +129,26 @@ notepadpp-agent-linux/
 ├── bin/
 │   └── npp-cli                  # CLI executável e cliente JSON-RPC
 ├── docs/
+│   ├── PROJETO_NOTEPADPP_ANTIGRAVITY_LINUX.md # Documentação da arquitetura
 │   └── images/
-│       ├── notepadpp_window.png # Print em alta resolução da janela
-│       └── notepadpp_running.png# Print completo do desktop rodando
+│       ├── notepadpp_monokai_window.png       # Print da janela com Monokai e Function List
+│       ├── notepadpp_monokai_functionlist.png # Print do desktop completo
+│       ├── notepadpp_window.png               # Print da janela em modo claro
+│       └── notepadpp_running.png              # Print do desktop em modo claro
 ├── src/
 │   └── npp-linux/
+│       ├── assets/
+│       │   ├── themes/          # 22 temas oficiais em XML (Monokai, Obsidian, etc.)
+│       │   └── autoCompletion/  # 34 dicionários oficiais de palavras-chave
 │       ├── AgentBridge.h/.cpp   # Servidor Unix Domain Socket (JSON-RPC)
-│       ├── EditorTab.h/.cpp     # Gerenciamento de abas e motor Scintilla
-│       ├── LexerManager.h/.cpp  # Carregador de sintaxes Lexilla (100+ linguagens)
+│       ├── EditorTab.h/.cpp     # Gerenciamento de abas, Scintilla e Auto-Completion
+│       ├── FunctionListDock.h/.cpp # Painel lateral de navegação de classes e funções
+│       ├── LexerManager.h/.cpp  # Carregador de sintaxes Lexilla e temas XML
 │       ├── MainWindow.h/.cpp    # Janela principal, menus, toolbar e statusbar
 │       ├── main.cpp             # Ponto de entrada da aplicação
 │       └── CMakeLists.txt       # Script de compilação CMake
+├── tests/
+│   └── artemis_ui_audit.py      # Suíte de auditoria e testes do Artemis Linux
 ├── notepadpp-agent-linux.html   # Exemplo demonstrativo gerado pelo agente
 ├── .gitignore
 └── README.md
@@ -179,13 +173,15 @@ cmake ..
 make -j$(nproc)
 ```
 
-### Execução
+### Executar a Suíte de Testes do Artemis Linux
 ```bash
-./notepadpp-agent
+python3 tests/artemis_ui_audit.py
 ```
 
-Ou utilizando o atalho configurado globalmente:
+### Execução do Editor
 ```bash
+./notepadpp-agent
+# ou globalmente no sistema:
 notepadpp
 ```
 

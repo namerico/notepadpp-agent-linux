@@ -11,6 +11,7 @@
 
 class EditorTab;
 class AgentBridge;
+class FunctionListDock;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -36,6 +37,9 @@ public:
     EditorTab* currentTab() const;
 
     void showStatusMessage(const QString& msg, int timeout = 4000);
+    void applyTheme(const QString& themeName);
+    void toggleFunctionList(bool visible);
+    FunctionListDock* functionListDock() const { return m_functionListDock; }
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -76,6 +80,7 @@ private:
 
     QTabWidget* m_tabWidget;
     AgentBridge* m_agentBridge;
+    FunctionListDock* m_functionListDock;
 
     // Status bar labels
     QLabel* m_statusMessageLabel;
@@ -106,5 +111,6 @@ private:
     QAction* m_actReplace;
     QAction* m_actZoomIn;
     QAction* m_actZoomOut;
+    QAction* m_actToggleFunctionList;
     QAction* m_actAbout;
 };
