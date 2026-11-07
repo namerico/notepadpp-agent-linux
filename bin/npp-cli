@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""
+Notepad++ Agent CLI (npp-cli)
+Interface CLI unificada e cliente JSON-RPC para controle do Notepad++ nativo no Linux pelo ecossistema Antigravity.
+"""
+
+import sys
+import os
+import socket
+import json
+import argparse
+import subprocess
+import time
+
+SOCKET_PATH = "/tmp/npp_antigravity.sock"
+BINARY_PATH = "/home/namerico/Documentos/Projetos Antigravity/notepadpp-agent-linux/src/npp-linux/build/notepadpp-agent"
+
+def send_rpc(method, params=None, timeout=3.0, auto_launch=True):
+    if params is None:
+        params = {}
+
+    if not os.path.exists(SOCKET_PATH):
+        if auto_launch:
+            # Tenta iniciar o Notepad++ automaticamente em background se não estiver rodando
+            launch_editor()
+            for _ in range(20):
+                time.sleep(0.1)
+                if os.path.exists(SOCKET_PATH):
+                    break
+            if not os.path.exists(SOCKET_PATH):
+                return {"error": {"message": f"Notepad++ não está em execução e não foi possível iniciar o socket em {SOCKET_PATH}"}}
+        else:
+            return {"error": {"message": f"Socket não encontrado em {SOCKET_PATH}"}}
+
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    try:
+        s.connect(SOCKET_PATH)
+        req = {
+            "jsonrpc": "2.0",
+            "id": int(time.time() * 1000) % 100000,
+            "method": method,
+            "params": params
+        }
+        s.sendall(json.dumps(req).encode('utf-8') + b"\n")
+
+        buffer = b""
+        while True:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            buffer += chunk
+            if b"\n" in buffer:
+                break
+
+        res = json.loads(buffer.decode('utf-8').strip())
+        return res
+    except Exception as e:
+        return {"error": {"message": f"Erro de comunicação com o socket: {str(e)}"}}
+    finally:
+        s.close()
+
+def launch_editor(files=None):
+    if files is None:
+        files = []
+    env = os.environ.copy()
+    if "DISPLAY" not in env:
+        env["DISPLAY"] = ":0"
+    
+    cmd = [BINARY_PATH] + files
+    subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+def main():
+    parser = argparse.ArgumentParser(description="Notepad++ Antigravity Agent CLI")
+    subparsers = parser.add_subparsers(dest="command", help="Comandos disponíveis")
+
+    # ping
+    subparsers.add_parser("ping", help="Verifica se o Notepad++ está ativo e responde")
+
+    # focus
+    subparsers.add_parser("focus", help="Traz a janela do Notepad++ para a frente e foca")
+
+    # launch
+    subparsers.add_parser("launch", help="Inicia o Notepad++ no display ativo")
+
+    # tabs
+    subparsers.add_parser("tabs", help="Lista todas as abas abertas")
+
+    # switch
+    p_switch = subparsers.add_parser("switch", help="Alterna para uma aba específica")
+    p_switch.add_argument("index", type=int, help="Índice da aba (0-indexed)")
+
+    # open
+    p_open = subparsers.add_parser("open", help="Abre um arquivo")
+    p_open.add_argument("path", help="Caminho do arquivo a abrir")
+    p_open.add_argument("--line", type=int, default=0, help="Linha para posicionar o cursor")
+
+    # new
+    p_new = subparsers.add_parser("new", help="Cria uma nova aba")
+    p_new.add_argument("--text", default="", help="Texto inicial opcional")
+
+    # get
+    subparsers.add_parser("get", help="Obtém o conteúdo do buffer ativo")
+
+    # set
+    p_set = subparsers.add_parser("set", help="Substitui o conteúdo do buffer ativo")
+    p_set.add_argument("text", help="Novo texto para o buffer")
+
+    # insert
+    p_ins = subparsers.add_parser("insert", help="Insere texto na posição atual do cursor")
+    p_ins.add_argument("text", help="Texto a ser inserido")
+
+    # patch / diff
+    p_patch = subparsers.add_parser("patch", help="Aplica uma substituição precisa por intervalo")
+    p_patch.add_argument("--start", type=int, required=True, help="Posição inicial do caractere")
+    p_patch.add_argument("--len", type=int, required=True, help="Comprimento a ser substituído")
+    p_patch.add_argument("--replace", type=str, required=True, help="Novo texto de substituição")
+
+    # save
+    subparsers.add_parser("save", help="Salva o arquivo ativo")
+
+    # close
+    p_close = subparsers.add_parser("close", help="Fecha a aba ativa ou especificada")
+    p_close.add_argument("--index", type=int, default=-1, help="Índice da aba a fechar")
+
+    # rename
+    p_rename = subparsers.add_parser("rename", help="Renomeia o título da aba")
+    p_rename.add_argument("title", help="Novo título da aba")
+    p_rename.add_argument("--index", type=int, default=-1, help="Índice da aba a renomear")
+
+    # notify
+    p_notif = subparsers.add_parser("notify", help="Exibe uma mensagem/notificação de agente no rodapé")
+    p_notif.add_argument("message", help="Mensagem do agente")
+
+    args = parser.parse_args()
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    if args.command == "launch":
+        launch_editor()
+        print("Notepad++ iniciado em background.")
+        sys.exit(0)
+
+    res = None
+    if args.command == "ping":
+        res = send_rpc("ping")
+    elif args.command == "focus":
+        res = send_rpc("focus")
+    elif args.command == "tabs":
+        res = send_rpc("listTabs")
+    elif args.command == "switch":
+        res = send_rpc("switchTab", {"index": args.index})
+    elif args.command == "open":
+        abs_path = os.path.abspath(args.path)
+        res = send_rpc("openFile", {"path": abs_path, "line": args.line})
+    elif args.command == "new":
+        res = send_rpc("newTab", {"text": args.text})
+    elif args.command == "get":
+        res = send_rpc("getActiveBuffer")
+    elif args.command == "set":
+        res = send_rpc("setActiveBuffer", {"text": args.text})
+    elif args.command == "insert":
+        res = send_rpc("insertText", {"text": args.text})
+    elif args.command == "patch":
+        res = send_rpc("applyDiff", {"startPos": args.start, "length": args.len, "replacement": args.replace})
+    elif args.command == "save":
+        res = send_rpc("saveActiveFile")
+    elif args.command == "close":
+        params = {}
+        if args.index >= 0:
+            params["index"] = args.index
+        res = send_rpc("closeTab", params)
+    elif args.command == "rename":
+        params = {"title": args.title}
+        if args.index >= 0:
+            params["index"] = args.index
+        res = send_rpc("renameTab", params)
+    elif args.command == "notify":
+        res = send_rpc("showNotification", {"message": args.message})
+
+    print(json.dumps(res, indent=2, ensure_ascii=False))
+
+if __name__ == "__main__":
+    main()

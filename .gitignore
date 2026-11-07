@@ -1,0 +1,23 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.so.*
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.stash
+
+# Extracted installer raw dump (large files)
+extracted_installer/
+src/notepad-plus-plus-upstream/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local sockets and logs
+*.sock
+*.log
