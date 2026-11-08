@@ -153,6 +153,10 @@ QJsonObject AgentBridge::processJsonRpc(const QJsonObject& req) {
             result = rpcSaveSession(params);
         } else if (method == "loadSession") {
             result = rpcLoadSession(params);
+        } else if (method == "setPadding") {
+            result = rpcSetPadding(params);
+        } else if (method == "getPadding") {
+            result = rpcGetPadding(params);
         } else {
             QJsonObject err;
             err["code"] = -32601;
@@ -496,5 +500,39 @@ QJsonObject AgentBridge::rpcLoadSession(const QJsonObject& params) {
     res["success"] = ok;
     res["tabCount"] = m_mainWindow->tabCount();
     res["sessionPath"] = path.isEmpty() ? m_mainWindow->defaultSessionPath() : path;
+    return res;
+}
+
+QJsonObject AgentBridge::rpcSetPadding(const QJsonObject& params) {
+    int left = params.value("left").toInt(LexerManager::instance().paddingLeft());
+    int right = params.value("right").toInt(LexerManager::instance().paddingRight());
+    int top = params.value("top").toInt(LexerManager::instance().extraAscent());
+    int bottom = params.value("bottom").toInt(LexerManager::instance().extraDescent());
+
+    LexerManager::instance().setPadding(left, right, top, bottom);
+
+    for (int i = 0; i < m_mainWindow->tabCount(); ++i) {
+        EditorTab* t = m_mainWindow->tabAt(i);
+        if (t) {
+            t->reloadTheme();
+        }
+    }
+
+    QJsonObject res;
+    res["success"] = true;
+    res["left"] = left;
+    res["right"] = right;
+    res["top"] = top;
+    res["bottom"] = bottom;
+    return res;
+}
+
+QJsonObject AgentBridge::rpcGetPadding(const QJsonObject& params) {
+    Q_UNUSED(params);
+    QJsonObject res;
+    res["left"] = LexerManager::instance().paddingLeft();
+    res["right"] = LexerManager::instance().paddingRight();
+    res["top"] = LexerManager::instance().extraAscent();
+    res["bottom"] = LexerManager::instance().extraDescent();
     return res;
 }

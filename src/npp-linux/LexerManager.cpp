@@ -151,6 +151,13 @@ bool LexerManager::setTheme(const QString& themeName) {
     return false;
 }
 
+void LexerManager::setPadding(int left, int right, int topAscent, int bottomDescent) {
+    if (left >= 0) m_paddingLeft = left;
+    if (right >= 0) m_paddingRight = right;
+    if (topAscent >= 0) m_extraAscent = topAscent;
+    if (bottomDescent >= 0) m_extraDescent = bottomDescent;
+}
+
 bool LexerManager::parseThemeXml(const QString& filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -261,7 +268,7 @@ void LexerManager::applyTheme(ScintillaEditBase* editor) {
 
     // Margem de numeração de linhas (Margem 0)
     editor->send(SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER);
-    editor->send(SCI_SETMARGINWIDTHN, 0, 48);
+    editor->send(SCI_SETMARGINWIDTHN, 0, 50);
     editor->send(SCI_SETMARGINSENSITIVEN, 0, 0);
     editor->send(SCI_STYLESETBACK, STYLE_LINENUMBER, m_lineMarginBg);
     editor->send(SCI_STYLESETFORE, STYLE_LINENUMBER, m_lineMarginFg);
@@ -272,6 +279,24 @@ void LexerManager::applyTheme(ScintillaEditBase* editor) {
     editor->send(SCI_SETMARGINWIDTHN, 2, 16);
     editor->send(SCI_SETMARGINSENSITIVEN, 2, 1);
     editor->send(SCI_SETAUTOMATICFOLD, SC_AUTOMATICFOLD_CLICK);
+
+    // Símbolos clássicos de folding com caixas +/- do Notepad++
+    editor->send(SCI_MARKERDEFINE, SC_MARKNUM_FOLDEROPEN, SC_MARK_BOXMINUS);
+    editor->send(SCI_MARKERDEFINE, SC_MARKNUM_FOLDER, SC_MARK_BOXPLUS);
+    editor->send(SCI_MARKERDEFINE, SC_MARKNUM_FOLDERSUB, SC_MARK_VLINE);
+    editor->send(SCI_MARKERDEFINE, SC_MARKNUM_FOLDERTAIL, SC_MARK_LCORNER);
+    editor->send(SCI_MARKERDEFINE, SC_MARKNUM_FOLDEREND, SC_MARK_BOXPLUSCONNECTED);
+    editor->send(SCI_MARKERDEFINE, SC_MARKNUM_FOLDEROPENMID, SC_MARK_BOXMINUSCONNECTED);
+    editor->send(SCI_MARKERDEFINE, SC_MARKNUM_FOLDERMIDTAIL, SC_MARK_TCORNER);
+    editor->send(SCI_SETFOLDMARGINCOLOUR, 1, m_lineMarginBg);
+    editor->send(SCI_SETFOLDMARGINHICOLOUR, 1, m_lineMarginBg);
+
+    // Espaçamento e respiro das margens laterais e verticais (Padding)
+    editor->send(SCI_SETMARGINLEFT, 0, m_paddingLeft);   // Afasta o código da margem esquerda
+    editor->send(SCI_SETMARGINRIGHT, 0, m_paddingRight); // Afasta o código da margem direita
+    editor->send(SCI_SETEXTRAASCENT, m_extraAscent);    // Afasta a 1ª linha do topo e dá respiro vertical
+    editor->send(SCI_SETEXTRADESCENT, m_extraDescent);  // Respiro na base de cada linha
+    editor->send(SCI_SETSCROLLWIDTHTRACKING, 1);
 
     // Caret e linha corrente
     editor->send(SCI_SETCARETLINEVISIBLE, 1);

@@ -55,6 +55,13 @@ void EditorTab::setupEditor() {
 
     // Margem de seleção
     m_editor->send(SCI_SETSELBACK, 1, 0xD4A070); // Cor de seleção clássica
+
+    // Padding e respiro de margens
+    m_editor->send(SCI_SETMARGINLEFT, 0, LexerManager::instance().paddingLeft());
+    m_editor->send(SCI_SETMARGINRIGHT, 0, LexerManager::instance().paddingRight());
+    m_editor->send(SCI_SETEXTRAASCENT, LexerManager::instance().extraAscent());
+    m_editor->send(SCI_SETEXTRADESCENT, LexerManager::instance().extraDescent());
+    m_editor->send(SCI_SETSCROLLWIDTHTRACKING, 1);
 }
 
 QString EditorTab::title() const {

@@ -170,6 +170,18 @@ def npp_load_session(path: str = "") -> str:
     res = send_rpc("loadSession", {"path": path})
     return json.dumps(res, indent=2, ensure_ascii=False)
 
+@server.tool()
+def npp_set_padding(left: int = 16, right: int = 16, top: int = 6, bottom: int = 4) -> str:
+    """Ajusta o respiro/padding das margens do código (laterais e verticais no topo/base de cada linha)."""
+    res = send_rpc("setPadding", {"left": left, "right": right, "top": top, "bottom": bottom})
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+@server.tool()
+def npp_get_padding() -> str:
+    """Consulta os valores atuais de padding e margens do editor."""
+    res = send_rpc("getPadding")
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
 if __name__ == "__main__":
     # Inicia o servidor MCP via stdio
     import asyncio

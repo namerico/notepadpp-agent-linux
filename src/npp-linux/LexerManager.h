@@ -29,6 +29,12 @@ public:
     QString currentTheme() const { return m_currentThemeName; }
     bool setTheme(const QString& themeName);
 
+    void setPadding(int left, int right, int topAscent, int bottomDescent);
+    int paddingLeft() const { return m_paddingLeft; }
+    int paddingRight() const { return m_paddingRight; }
+    int extraAscent() const { return m_extraAscent; }
+    int extraDescent() const { return m_extraDescent; }
+
     QString getAutoCompletionWords(const QString& filePath) const;
 
 private:
@@ -56,4 +62,9 @@ private:
     int m_caretColor = 0x000000;
     int m_currentLineBg = 0xE8F2FE;
     int m_selectionBg = 0xD4A070;
+
+    int m_paddingLeft = 16;
+    int m_paddingRight = 16;
+    int m_extraAscent = 6;
+    int m_extraDescent = 4;
 };

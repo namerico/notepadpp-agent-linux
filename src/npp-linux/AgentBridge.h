@@ -50,6 +50,8 @@ private:
     QJsonObject rpcShowNotification(const QJsonObject& params);
     QJsonObject rpcSaveSession(const QJsonObject& params);
     QJsonObject rpcLoadSession(const QJsonObject& params);
+    QJsonObject rpcSetPadding(const QJsonObject& params);
+    QJsonObject rpcGetPadding(const QJsonObject& params);
 
     MainWindow* m_mainWindow;
     QLocalServer* m_server;

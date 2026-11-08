@@ -152,6 +152,13 @@ def main():
     p_sload = subparsers.add_parser("session-load", help="Restaura a sessão a partir de session.xml")
     p_sload.add_argument("--path", default="", help="Caminho opcional do arquivo de sessão XML")
 
+    # padding
+    p_pad = subparsers.add_parser("padding", help="Consulta ou ajusta o respiro/padding das margens (lateral e vertical)")
+    p_pad.add_argument("--left", type=int, default=-1, help="Margem interna esquerda em pixels")
+    p_pad.add_argument("--right", type=int, default=-1, help="Margem interna direita em pixels")
+    p_pad.add_argument("--top", type=int, default=-1, help="Respiro superior em pixels (extra ascent)")
+    p_pad.add_argument("--bottom", type=int, default=-1, help="Respiro inferior em pixels (extra descent)")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -213,6 +220,16 @@ def main():
         res = send_rpc("saveSession", {"path": args.path})
     elif args.command == "session-load":
         res = send_rpc("loadSession", {"path": args.path})
+    elif args.command == "padding":
+        params = {}
+        if args.left >= 0: params["left"] = args.left
+        if args.right >= 0: params["right"] = args.right
+        if args.top >= 0: params["top"] = args.top
+        if args.bottom >= 0: params["bottom"] = args.bottom
+        if params:
+            res = send_rpc("setPadding", params)
+        else:
+            res = send_rpc("getPadding")
 
     print(json.dumps(res, indent=2, ensure_ascii=False))
 
