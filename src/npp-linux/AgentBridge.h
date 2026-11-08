@@ -25,7 +25,7 @@ private slots:
     void onSocketDisconnected();
 
 private:
-    void handleClientMessage(QLocalSocket* socket, const QByteArray& data);
+    void handleSingleMessage(QLocalSocket* socket, const QByteArray& data);
     QJsonObject processJsonRpc(const QJsonObject& req);
 
     // Métodos RPC
@@ -48,8 +48,11 @@ private:
     QJsonObject rpcSetTheme(const QJsonObject& params);
     QJsonObject rpcToggleFunctionList(const QJsonObject& params);
     QJsonObject rpcShowNotification(const QJsonObject& params);
+    QJsonObject rpcSaveSession(const QJsonObject& params);
+    QJsonObject rpcLoadSession(const QJsonObject& params);
 
     MainWindow* m_mainWindow;
     QLocalServer* m_server;
     QString m_socketPath;
+    QMap<QLocalSocket*, QByteArray> m_socketBuffers;
 };

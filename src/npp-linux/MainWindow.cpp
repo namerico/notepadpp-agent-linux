@@ -15,6 +15,10 @@
 #include <QStyle>
 #include <QDebug>
 #include <QIcon>
+#include <QStandardPaths>
+#include <QXmlStreamWriter>
+#include <QXmlStreamReader>
+#include <QDir>
 
 static QIcon createTabIcon(bool modified) {
     QPixmap pix(14, 14);
@@ -449,6 +453,86 @@ void MainWindow::applyTheme(const QString& themeName) {
     }
 }
 
+QString MainWindow::defaultSessionPath() const {
+    QString configDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/notepadpp-agent";
+    QDir().mkpath(configDir);
+    return configDir + "/session.xml";
+}
+
+void MainWindow::saveSession(const QString& path) {
+    QString targetPath = path.isEmpty() ? defaultSessionPath() : path;
+    QFile file(targetPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        qWarning() << "Falha ao salvar sessão em:" << targetPath;
+        return;
+    }
+
+    QXmlStreamWriter xml(&file);
+    xml.setAutoFormatting(true);
+    xml.writeStartDocument();
+    xml.writeStartElement("NotepadPlus");
+    xml.writeStartElement("Session");
+    xml.writeAttribute("activeView", "0");
+
+    xml.writeStartElement("mainView");
+    xml.writeAttribute("activeIndex", QString::number(currentTabIndex()));
+
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        EditorTab* tab = tabAt(i);
+        if (!tab) continue;
+        if (!tab->filePath().isEmpty()) {
+            xml.writeStartElement("File");
+            xml.writeAttribute("filename", tab->filePath());
+            xml.writeAttribute("line", QString::number(tab->currentLine()));
+            xml.writeEndElement(); // File
+        }
+    }
+
+    xml.writeEndElement(); // mainView
+    xml.writeEndElement(); // Session
+    xml.writeEndElement(); // NotepadPlus
+    xml.writeEndDocument();
+    file.close();
+    qInfo() << "Sessão salva com sucesso em" << targetPath;
+}
+
+bool MainWindow::loadSession(const QString& path) {
+    QString targetPath = path.isEmpty() ? defaultSessionPath() : path;
+    QFile file(targetPath);
+    if (!file.exists() || !file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QXmlStreamReader xml(&file);
+    int activeIndex = 0;
+    int filesOpened = 0;
+
+    while (!xml.atEnd() && !xml.hasError()) {
+        QXmlStreamReader::TokenType token = xml.readNext();
+        if (token == QXmlStreamReader::StartElement) {
+            if (xml.name() == "mainView") {
+                activeIndex = xml.attributes().value("activeIndex").toInt();
+            } else if (xml.name() == "File") {
+                QString filename = xml.attributes().value("filename").toString();
+                int line = xml.attributes().value("line").toInt();
+                if (!filename.isEmpty() && QFile::exists(filename)) {
+                    openFile(filename, line);
+                    filesOpened++;
+                }
+            }
+        }
+    }
+    file.close();
+
+    if (filesOpened > 0) {
+        if (activeIndex >= 0 && activeIndex < m_tabWidget->count()) {
+            m_tabWidget->setCurrentIndex(activeIndex);
+        }
+        return true;
+    }
+    return false;
+}
+
 void MainWindow::toggleFunctionList(bool visible) {
     if (m_functionListDock) {
         m_functionListDock->setVisible(visible);
@@ -546,6 +630,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         }
     }
 
+    saveSession();
     m_agentBridge->stopServer();
     event->accept();
 }

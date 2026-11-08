@@ -118,7 +118,31 @@ npp-cli save
 
 # 12. Enviar notificação na barra de status
 npp-cli notify "Refatoração concluída pelo Antigravity!"
+
+# 13. Persistência de Sessão
+npp-cli session-save
+npp-cli session-load
 ```
+
+---
+
+## 🤖 Servidor MCP Nativo (`npp-mcp`)
+
+O projeto inclui um servidor **Model Context Protocol (MCP)** completo em `mcp-server/npp_mcp.py`, expondo 17 ferramentas para agentes de IA:
+
+* `npp_ping`: Healthcheck e PID.
+* `npp_list_tabs`: Lista de abas e metadados.
+* `npp_open_file`: Abertura de arquivos com foco de linha.
+* `npp_get_active_buffer`: Leitura integral do buffer ativo.
+* `npp_set_active_buffer`: Substituição total de texto.
+* `npp_insert_text`: Inserção na posição do cursor.
+* `npp_apply_diff`: Patch atômico e cirúrgico no Scintilla.
+* `npp_new_tab`: Criação de aba vazia.
+* `npp_save_active_file`: Salvamento em disco.
+* `npp_set_theme`: Aplicação dinâmica de temas visuais.
+* `npp_toggle_function_list`: Controle do painel Function List.
+* `npp_show_notification`: Notificação na barra de status.
+* `npp_save_session` / `npp_load_session`: Gestão de sessões XML.
 
 ---
 
@@ -128,6 +152,9 @@ npp-cli notify "Refatoração concluída pelo Antigravity!"
 notepadpp-agent-linux/
 ├── bin/
 │   └── npp-cli                  # CLI executável e cliente JSON-RPC
+├── mcp-server/
+│   ├── npp_mcp.py               # Servidor nativo MCP (Model Context Protocol)
+│   └── README.md                # Guia de configuração para agentes de IA
 ├── docs/
 │   ├── PROJETO_NOTEPADPP_ANTIGRAVITY_LINUX.md # Documentação da arquitetura
 │   └── images/
@@ -139,13 +166,15 @@ notepadpp-agent-linux/
 │   └── npp-linux/
 │       ├── assets/
 │       │   ├── themes/          # 22 temas oficiais em XML (Monokai, Obsidian, etc.)
-│       │   └── autoCompletion/  # 34 dicionários oficiais de palavras-chave
-│       ├── AgentBridge.h/.cpp   # Servidor Unix Domain Socket (JSON-RPC)
+│       │   ├── autoCompletion/  # 34 dicionários oficiais de palavras-chave
+│       │   ├── functionList/    # 48 regras XML oficiais de extração de símbolos
+│       │   └── icons/           # Ícone autêntico do camaleão do Notepad++
+│       ├── AgentBridge.h/.cpp   # Servidor Unix Domain Socket (JSON-RPC) com buffer anti-fragmentação
 │       ├── EditorTab.h/.cpp     # Gerenciamento de abas, Scintilla e Auto-Completion
-│       ├── FunctionListDock.h/.cpp # Painel lateral de navegação de classes e funções
+│       ├── FunctionListDock.h/.cpp # Painel lateral de navegação com regras XML oficiais
 │       ├── LexerManager.h/.cpp  # Carregador de sintaxes Lexilla e temas XML
-│       ├── MainWindow.h/.cpp    # Janela principal, menus, toolbar e statusbar
-│       ├── main.cpp             # Ponto de entrada da aplicação
+│       ├── MainWindow.h/.cpp    # Janela principal, sessão persistente session.xml e menus
+│       ├── main.cpp             # Ponto de entrada com carregamento automático de sessão
 │       └── CMakeLists.txt       # Script de compilação CMake
 ├── tests/
 │   └── artemis_ui_audit.py      # Suíte de auditoria e testes do Artemis Linux

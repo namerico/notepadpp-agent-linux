@@ -28,6 +28,9 @@ private slots:
 
 private:
     void parseContent(const QString& text, const QString& filePath);
+    bool parseFromXmlRules(const QString& text, const QString& xmlPath, QTreeWidgetItem* classesGroup, QTreeWidgetItem* functionsGroup);
+    void parseWithBuiltinPatterns(const QString& text, const QString& ext, QTreeWidgetItem* classesGroup, QTreeWidgetItem* functionsGroup);
+    QString getXmlRulePathForExtension(const QString& ext) const;
 
     QLineEdit *m_filterEdit;
     QTreeWidget *m_treeWidget;

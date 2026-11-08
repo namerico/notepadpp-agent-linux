@@ -56,44 +56,48 @@ void AgentBridge::onReadyRead() {
     QLocalSocket* socket = qobject_cast<QLocalSocket*>(sender());
     if (!socket) return;
 
-    QByteArray data = socket->readAll();
-    handleClientMessage(socket, data);
+    m_socketBuffers[socket].append(socket->readAll());
+    QByteArray& buffer = m_socketBuffers[socket];
+
+    int newlineIndex = -1;
+    while ((newlineIndex = buffer.indexOf('\n')) != -1) {
+        QByteArray line = buffer.left(newlineIndex).trimmed();
+        buffer.remove(0, newlineIndex + 1);
+
+        if (!line.isEmpty()) {
+            handleSingleMessage(socket, line);
+        }
+    }
 }
 
 void AgentBridge::onSocketDisconnected() {
     QLocalSocket* socket = qobject_cast<QLocalSocket*>(sender());
     if (socket) {
+        m_socketBuffers.remove(socket);
         socket->deleteLater();
     }
 }
 
-void AgentBridge::handleClientMessage(QLocalSocket* socket, const QByteArray& data) {
-    // Pode haver múltiplas mensagens delimitadas por \n ou único JSON
-    QList<QByteArray> lines = data.split('\n');
-    for (const QByteArray& line : lines) {
-        QByteArray trimmed = line.trimmed();
-        if (trimmed.isEmpty()) continue;
-
-        QJsonParseError parseError;
-        QJsonDocument doc = QJsonDocument::fromJson(trimmed, &parseError);
-        if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
-            QJsonObject errResp;
-            errResp["jsonrpc"] = "2.0";
-            errResp["id"] = QJsonValue::Null;
-            QJsonObject errObj;
-            errObj["code"] = -32700;
-            errObj["message"] = QString("Parse error: %1").arg(parseError.errorString());
-            errResp["error"] = errObj;
-            socket->write(QJsonDocument(errResp).toJson(QJsonDocument::Compact) + "\n");
-            socket->flush();
-            continue;
-        }
-
-        QJsonObject req = doc.object();
-        QJsonObject resp = processJsonRpc(req);
-        socket->write(QJsonDocument(resp).toJson(QJsonDocument::Compact) + "\n");
+void AgentBridge::handleSingleMessage(QLocalSocket* socket, const QByteArray& data) {
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+        QJsonObject errResp;
+        errResp["jsonrpc"] = "2.0";
+        errResp["id"] = QJsonValue::Null;
+        QJsonObject errObj;
+        errObj["code"] = -32700;
+        errObj["message"] = QString("Parse error: %1").arg(parseError.errorString());
+        errResp["error"] = errObj;
+        socket->write(QJsonDocument(errResp).toJson(QJsonDocument::Compact) + "\n");
         socket->flush();
+        return;
     }
+
+    QJsonObject req = doc.object();
+    QJsonObject resp = processJsonRpc(req);
+    socket->write(QJsonDocument(resp).toJson(QJsonDocument::Compact) + "\n");
+    socket->flush();
 }
 
 QJsonObject AgentBridge::processJsonRpc(const QJsonObject& req) {
@@ -145,6 +149,10 @@ QJsonObject AgentBridge::processJsonRpc(const QJsonObject& req) {
             result = rpcToggleFunctionList(params);
         } else if (method == "showNotification") {
             result = rpcShowNotification(params);
+        } else if (method == "saveSession") {
+            result = rpcSaveSession(params);
+        } else if (method == "loadSession") {
+            result = rpcLoadSession(params);
         } else {
             QJsonObject err;
             err["code"] = -32601;
@@ -469,5 +477,24 @@ QJsonObject AgentBridge::rpcShowNotification(const QJsonObject& params) {
     m_mainWindow->showStatusMessage(QString("[Antigravity Agent] %1").arg(msg), timeout);
     QJsonObject res;
     res["success"] = true;
+    return res;
+}
+
+QJsonObject AgentBridge::rpcSaveSession(const QJsonObject& params) {
+    QString path = params.value("path").toString();
+    m_mainWindow->saveSession(path);
+    QJsonObject res;
+    res["success"] = true;
+    res["sessionPath"] = path.isEmpty() ? m_mainWindow->defaultSessionPath() : path;
+    return res;
+}
+
+QJsonObject AgentBridge::rpcLoadSession(const QJsonObject& params) {
+    QString path = params.value("path").toString();
+    bool ok = m_mainWindow->loadSession(path);
+    QJsonObject res;
+    res["success"] = ok;
+    res["tabCount"] = m_mainWindow->tabCount();
+    res["sessionPath"] = path.isEmpty() ? m_mainWindow->defaultSessionPath() : path;
     return res;
 }

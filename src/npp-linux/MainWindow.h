@@ -41,6 +41,10 @@ public:
     void toggleFunctionList(bool visible);
     FunctionListDock* functionListDock() const { return m_functionListDock; }
 
+    void saveSession(const QString& path = "");
+    bool loadSession(const QString& path = "");
+    QString defaultSessionPath() const;
+
 protected:
     void closeEvent(QCloseEvent *event) override;
 

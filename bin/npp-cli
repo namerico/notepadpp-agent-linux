@@ -144,6 +144,14 @@ def main():
     p_notif = subparsers.add_parser("notify", help="Exibe uma mensagem/notificação de agente no rodapé")
     p_notif.add_argument("message", help="Mensagem do agente")
 
+    # session-save
+    p_ssave = subparsers.add_parser("session-save", help="Salva a sessão atual (arquivos abertos e cursores) em session.xml")
+    p_ssave.add_argument("--path", default="", help="Caminho opcional do arquivo de sessão XML")
+
+    # session-load
+    p_sload = subparsers.add_parser("session-load", help="Restaura a sessão a partir de session.xml")
+    p_sload.add_argument("--path", default="", help="Caminho opcional do arquivo de sessão XML")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -201,6 +209,10 @@ def main():
         res = send_rpc("toggleFunctionList", params)
     elif args.command == "notify":
         res = send_rpc("showNotification", {"message": args.message})
+    elif args.command == "session-save":
+        res = send_rpc("saveSession", {"path": args.path})
+    elif args.command == "session-load":
+        res = send_rpc("loadSession", {"path": args.path})
 
     print(json.dumps(res, indent=2, ensure_ascii=False))
 

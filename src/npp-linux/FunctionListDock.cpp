@@ -5,6 +5,11 @@
 #include <QRegularExpression>
 #include <QFileInfo>
 #include <QStyle>
+#include <QCoreApplication>
+#include <QFile>
+#include <QDir>
+#include <QXmlStreamReader>
+#include <QDebug>
 
 FunctionListDock::FunctionListDock(QWidget *parent)
     : QDockWidget("Lista de Funções (Function List)", parent)
@@ -48,30 +53,136 @@ void FunctionListDock::updateSymbols(EditorTab* tab) {
     parseContent(text, filePath);
 }
 
-void FunctionListDock::parseContent(const QString& text, const QString& filePath) {
-    m_treeWidget->setUpdatesEnabled(false);
-    clear();
+QString FunctionListDock::getXmlRulePathForExtension(const QString& ext) const {
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString baseDir = appDir + "/assets/functionList";
+    if (!QDir(baseDir).exists()) {
+        baseDir = appDir + "/../assets/functionList";
+    }
 
-    QString ext = QFileInfo(filePath).suffix().toLower();
+    static const QMap<QString, QString> s_map = {
+        {"py", "python.xml"}, {"pyw", "python.xml"},
+        {"cpp", "cpp.xml"}, {"cxx", "cpp.xml"}, {"cc", "cpp.xml"}, {"hpp", "cpp.xml"}, {"h", "cpp.xml"},
+        {"c", "c.xml"},
+        {"rs", "rust.xml"},
+        {"js", "javascript.js.xml"}, {"mjs", "javascript.js.xml"}, {"cjs", "javascript.js.xml"},
+        {"ts", "typescript.xml"}, {"tsx", "typescript.xml"},
+        {"go", "go.xml"},
+        {"php", "php.xml"},
+        {"sh", "bash.xml"}, {"bash", "bash.xml"},
+        {"java", "java.xml"},
+        {"lua", "lua.xml"},
+        {"sql", "sql.xml"},
+        {"cs", "cs.xml"},
+        {"html", "html.xml"}, {"htm", "html.xml"},
+        {"xml", "xml.xml"},
+        {"ini", "ini.xml"},
+        {"toml", "toml.xml"},
+        {"yaml", "yaml.xml"}, {"yml", "yaml.xml"},
+        {"rb", "ruby.xml"}
+    };
+
+    QString fileName = s_map.value(ext, "");
+    if (!fileName.isEmpty()) {
+        QString fullPath = baseDir + "/" + fileName;
+        if (QFile::exists(fullPath)) {
+            return fullPath;
+        }
+    }
+    return QString();
+}
+
+bool FunctionListDock::parseFromXmlRules(const QString& text, const QString& xmlPath, QTreeWidgetItem* classesGroup, QTreeWidgetItem* functionsGroup) {
+    QFile file(xmlPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QXmlStreamReader xml(&file);
+    QStringList classExprs;
+    QStringList funcExprs;
+
+    while (!xml.atEnd() && !xml.hasError()) {
+        if (xml.readNextStartElement()) {
+            QString name = xml.name().toString();
+            if (name == "classRange") {
+                QString expr = xml.attributes().value("mainExpr").toString();
+                if (!expr.isEmpty()) classExprs.append(expr);
+            } else if (name == "function") {
+                QString expr = xml.attributes().value("mainExpr").toString();
+                if (!expr.isEmpty()) funcExprs.append(expr);
+            }
+        }
+    }
+    file.close();
+
+    int foundCount = 0;
+
+    // Tenta aplicar as regras oficiais com QRegularExpression
+    for (const QString& expr : funcExprs) {
+        QRegularExpression::PatternOptions options = QRegularExpression::MultilineOption;
+        QString cleanExpr = expr;
+        if (cleanExpr.contains("(?x)")) {
+            cleanExpr.remove("(?x)");
+            options |= QRegularExpression::ExtendedPatternSyntaxOption;
+        }
+
+        QRegularExpression regex(cleanExpr, options);
+        if (!regex.isValid()) continue;
+
+        QRegularExpressionMatchIterator it = regex.globalMatch(text);
+        while (it.hasNext()) {
+            QRegularExpressionMatch match = it.next();
+            int offset = match.capturedStart();
+            int lineNum = text.left(offset).count('\n') + 1;
+            QString captured = match.captured(0).trimmed();
+
+            // Limpa sufixos de bloco
+            captured.remove(QRegularExpression(R"([\{\:\;\(\)].*$)"));
+            captured = captured.trimmed();
+            if (captured.isEmpty()) continue;
+
+            // Extrai o nome identificador
+            QStringList tokens = captured.split(QRegularExpression(R"([\s\(\:\=\>]+)"), Qt::SkipEmptyParts);
+            QString symbol = tokens.isEmpty() ? captured : tokens.last();
+            if (symbol == "def" || symbol == "fn" || symbol == "function" || symbol == "func") {
+                if (tokens.size() >= 2) symbol = tokens.at(tokens.size() - 2);
+            }
+
+            if (!symbol.isEmpty()) {
+                QTreeWidgetItem *item = new QTreeWidgetItem(functionsGroup, QStringList() << (symbol + "()") << QString::number(lineNum));
+                item->setData(1, Qt::UserRole, lineNum);
+                foundCount++;
+            }
+        }
+    }
+
+    return (foundCount > 0);
+}
+
+void FunctionListDock::parseWithBuiltinPatterns(const QString& text, const QString& ext, QTreeWidgetItem* classesGroup, QTreeWidgetItem* functionsGroup) {
     QStringList lines = text.split('\n');
 
-    QTreeWidgetItem *classesGroup = new QTreeWidgetItem(m_treeWidget, QStringList() << "Classes / Interfaces" << "");
-    classesGroup->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
-
-    QTreeWidgetItem *functionsGroup = new QTreeWidgetItem(m_treeWidget, QStringList() << "Funções / Métodos" << "");
-    functionsGroup->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
-
-    // Expressões regulares para detecção universal
-    QRegularExpression classRegex(R"(^\s*(?:class|struct|interface)\s+([A-Za-z0-9_]+))");
-    QRegularExpression pyFuncRegex(R"(^\s*def\s+([A-Za-z0-9_]+)\s*\()");
-    QRegularExpression jsFuncRegex(R"(^\s*(?:async\s+)?(?:function\s+([A-Za-z0-9_]+)|(?:const|let|var)\s+([A-Za-z0-9_]+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>))");
+    // Expressões regulares de alta precisão
+    QRegularExpression classRegex(R"(^\s*(?:class|struct|interface|type)\s+([A-Za-z0-9_]+))");
+    QRegularExpression pyFuncRegex(R"(^\s*(?:async\s+)?def\s+([A-Za-z0-9_]+)\s*\()");
+    QRegularExpression jsFuncRegex(R"(^\s*(?:async\s+)?(?:function\s+([A-Za-z0-9_]+)|(?:const|let|var)\s+([A-Za-z0-9_]+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z0-9_]+)\s*=>))");
+    QRegularExpression rustFuncRegex(R"(^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)\s*(?:<[^>]*>)?\s*\()");
+    QRegularExpression goFuncRegex(R"(^\s*func\s+(?:\([^)]*\)\s+)?([A-Za-z0-9_]+)\s*\()");
+    QRegularExpression phpFuncRegex(R"(^\s*(?:public|private|protected|static|\s)*function\s+([A-Za-z0-9_]+)\s*\()");
+    QRegularExpression bashFuncRegex(R"(^\s*(?:function\s+)?([A-Za-z0-9_]+)\s*\(\)\s*\{)");
+    QRegularExpression rubyFuncRegex(R"(^\s*def\s+([A-Za-z0-9_]+))");
     QRegularExpression cppFuncRegex(R"(^\s*(?:[A-Za-z0-9_<:>]+[\s*&]+)+([A-Za-z0-9_~]+)\s*\([^)]*\)\s*(?:const)?\s*\{?)");
 
     for (int i = 0; i < lines.size(); ++i) {
         const QString &line = lines.at(i);
         int lineNum = i + 1;
+        QString trimmed = line.trimmed();
+        if (trimmed.isEmpty() || trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*")) {
+            continue;
+        }
 
-        // Classes
+        // Classes / Structs
         QRegularExpressionMatch classMatch = classRegex.match(line);
         if (classMatch.hasMatch()) {
             QString name = classMatch.captured(1);
@@ -80,7 +191,57 @@ void FunctionListDock::parseContent(const QString& text, const QString& filePath
             continue;
         }
 
-        // Funções Python
+        // Rust
+        if (ext == "rs") {
+            QRegularExpressionMatch m = rustFuncRegex.match(line);
+            if (m.hasMatch()) {
+                QTreeWidgetItem *item = new QTreeWidgetItem(functionsGroup, QStringList() << (m.captured(1) + "()") << QString::number(lineNum));
+                item->setData(1, Qt::UserRole, lineNum);
+                continue;
+            }
+        }
+
+        // Go
+        if (ext == "go") {
+            QRegularExpressionMatch m = goFuncRegex.match(line);
+            if (m.hasMatch()) {
+                QTreeWidgetItem *item = new QTreeWidgetItem(functionsGroup, QStringList() << (m.captured(1) + "()") << QString::number(lineNum));
+                item->setData(1, Qt::UserRole, lineNum);
+                continue;
+            }
+        }
+
+        // PHP
+        if (ext == "php") {
+            QRegularExpressionMatch m = phpFuncRegex.match(line);
+            if (m.hasMatch()) {
+                QTreeWidgetItem *item = new QTreeWidgetItem(functionsGroup, QStringList() << (m.captured(1) + "()") << QString::number(lineNum));
+                item->setData(1, Qt::UserRole, lineNum);
+                continue;
+            }
+        }
+
+        // Bash
+        if (ext == "sh" || ext == "bash") {
+            QRegularExpressionMatch m = bashFuncRegex.match(line);
+            if (m.hasMatch()) {
+                QTreeWidgetItem *item = new QTreeWidgetItem(functionsGroup, QStringList() << (m.captured(1) + "()") << QString::number(lineNum));
+                item->setData(1, Qt::UserRole, lineNum);
+                continue;
+            }
+        }
+
+        // Ruby
+        if (ext == "rb") {
+            QRegularExpressionMatch m = rubyFuncRegex.match(line);
+            if (m.hasMatch()) {
+                QTreeWidgetItem *item = new QTreeWidgetItem(functionsGroup, QStringList() << (m.captured(1) + "()") << QString::number(lineNum));
+                item->setData(1, Qt::UserRole, lineNum);
+                continue;
+            }
+        }
+
+        // Python
         QRegularExpressionMatch pyMatch = pyFuncRegex.match(line);
         if (pyMatch.hasMatch()) {
             QString name = pyMatch.captured(1) + "()";
@@ -89,7 +250,7 @@ void FunctionListDock::parseContent(const QString& text, const QString& filePath
             continue;
         }
 
-        // Funções JS/TS
+        // JS / TS
         QRegularExpressionMatch jsMatch = jsFuncRegex.match(line);
         if (jsMatch.hasMatch()) {
             QString name = jsMatch.captured(1).isEmpty() ? jsMatch.captured(2) : jsMatch.captured(1);
@@ -100,19 +261,42 @@ void FunctionListDock::parseContent(const QString& text, const QString& filePath
             }
         }
 
-        // Funções C/C++ (se não for if/while/for/switch)
-        if (!line.trimmed().startsWith("if") && !line.trimmed().startsWith("for") && 
-            !line.trimmed().startsWith("while") && !line.trimmed().startsWith("switch") &&
-            !line.trimmed().startsWith("catch")) {
+        // C / C++
+        if (!trimmed.startsWith("if") && !trimmed.startsWith("for") && 
+            !trimmed.startsWith("while") && !trimmed.startsWith("switch") &&
+            !trimmed.startsWith("catch")) {
             QRegularExpressionMatch cppMatch = cppFuncRegex.match(line);
             if (cppMatch.hasMatch()) {
                 QString name = cppMatch.captured(1);
-                if (!name.isEmpty() && name != "return") {
+                if (!name.isEmpty() && name != "return" && name != "else") {
                     QTreeWidgetItem *item = new QTreeWidgetItem(functionsGroup, QStringList() << (name + "()") << QString::number(lineNum));
                     item->setData(1, Qt::UserRole, lineNum);
                 }
             }
         }
+    }
+}
+
+void FunctionListDock::parseContent(const QString& text, const QString& filePath) {
+    m_treeWidget->setUpdatesEnabled(false);
+    clear();
+
+    QString ext = QFileInfo(filePath).suffix().toLower();
+
+    QTreeWidgetItem *classesGroup = new QTreeWidgetItem(m_treeWidget, QStringList() << "Classes / Interfaces / Structs" << "");
+    classesGroup->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
+
+    QTreeWidgetItem *functionsGroup = new QTreeWidgetItem(m_treeWidget, QStringList() << "Funções / Métodos" << "");
+    functionsGroup->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
+
+    QString xmlRulePath = getXmlRulePathForExtension(ext);
+    bool parsedFromXml = false;
+    if (!xmlRulePath.isEmpty()) {
+        parsedFromXml = parseFromXmlRules(text, xmlRulePath, classesGroup, functionsGroup);
+    }
+
+    if (!parsedFromXml) {
+        parseWithBuiltinPatterns(text, ext, classesGroup, functionsGroup);
     }
 
     if (classesGroup->childCount() == 0) {

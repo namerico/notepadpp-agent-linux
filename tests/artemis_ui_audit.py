@@ -57,9 +57,22 @@ def main():
     tab_idx = res.get("result", {}).get("tabIndex")
     print(f" -> Nova aba criada no indice {tab_idx}")
 
-    # 6. Notificação final
-    run_npp('notify "Auditoria do Artemis Linux concluida com 100% de sucesso!"')
-    print("\n[TESTE 5] Notificacao visual despachada para a UI.")
+    # 6. Salvar Sessão XML
+    print("\n[TESTE 5] Auditoria de Persistencia de Sessao (session.xml)...")
+    res = run_npp("session-save --path /tmp/test_npp_session.xml")
+    assert res.get("result", {}).get("success") is True
+    assert "/tmp/test_npp_session.xml" in res.get("result", {}).get("sessionPath", "")
+    print(" -> Sessao salva em /tmp/test_npp_session.xml com sucesso!")
+
+    # 7. Restaurar Sessão XML
+    print("\n[TESTE 6] Restauracao de Sessao (session-load)...")
+    res = run_npp("session-load --path /tmp/test_npp_session.xml")
+    assert res.get("result", {}).get("success") is True
+    print(f" -> Sessao restaurada com sucesso! Total de abas: {res.get('result', {}).get('tabCount')}")
+
+    # 8. Notificação final
+    run_npp('notify "Auditoria do Artemis Linux e Antigravity concluida com 100% de sucesso!"')
+    print("\n[TESTE 7] Notificacao visual despachada para a UI.")
 
     print("\n" + "=" * 60)
     print(" [OK] TODOS OS TESTES DO ARTEMIS LINUX PASSARAM COM SUCESSO!")
