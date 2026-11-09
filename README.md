@@ -1,6 +1,20 @@
 # 🦎 Notepad++ Agent-Native para Linux (Ecossistema Antigravity)
 
+[![YouTube Video](https://img.shields.io/badge/YouTube-Assistir%20Demonstra%C3%A7%C3%A3o-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/9DepaFVp-Os)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20(Ubuntu%2FDebian%2FFedora%2FArch)-orange.svg)](https://ubuntu.com)
+
 > **Port nativo de alto desempenho do Notepad++ v8.9.8.1 para Linux impulsionado por C++17, Scintilla e Lexilla oficiais, equipado com o sistema oficial de 22 Temas XML, Painel Lateral Function List, Auto-Completion nativo e o barramento Agent Bridge IPC para controle bidirecional com o Google Antigravity e agentes de IA autônomos.**
+
+---
+
+## 🎬 Demonstração em Vídeo no YouTube
+
+Assista à demonstração em vídeo do **Notepad++ Nativo no Linux** operado em tempo real pelos **Agentes de IA do Antigravity**:
+
+[![FINALMENTE! Notepad++ Nativo no LINUX com AGENTES DE IA (Sem Wine!)](https://img.youtube.com/vi/9DepaFVp-Os/maxresdefault.jpg)](https://youtu.be/9DepaFVp-Os)
+
+▶️ **[Clique aqui para assistir no YouTube: FINALMENTE! Notepad++ Nativo no LINUX com AGENTES DE IA (Sem Wine!) 🚀🐧](https://youtu.be/9DepaFVp-Os)**
 
 ---
 
